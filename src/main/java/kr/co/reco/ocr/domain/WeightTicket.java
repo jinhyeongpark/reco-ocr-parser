@@ -24,9 +24,6 @@ public class WeightTicket {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String documentType; // 증명서, 확인서, 계량표 등 정규화된 값
-    private String vendorName;   // 발행처 (동우 바이오, 하은펄프)
-
     @Column(nullable = false)
     private String carNumber;
 
