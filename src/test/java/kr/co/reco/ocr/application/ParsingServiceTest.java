@@ -9,7 +9,6 @@ import kr.co.reco.ocr.application.dto.OcrResult;
 import kr.co.reco.ocr.domain.WeightTicket;
 import kr.co.reco.ocr.domain.WeightTicketRepository;
 import kr.co.reco.ocr.infrastructure.ocr.RawTextExtractor;
-import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
