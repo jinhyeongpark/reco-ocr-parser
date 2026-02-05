@@ -40,6 +40,8 @@ public class ParsingServiceImpl implements ParsingService {
         System.out.println("--- [DEBUG] OCR 추출 텍스트 끝 ---");
 
         List<Double> weights = extractWeightsByReverse(text);
+        String carNumber = extractCarNumber(text);
+        LocalDateTime scaledAt = extractScaledAt(text);
 
         double grossWeight = 0.0;
         double tareWeight = 0.0;
@@ -56,14 +58,18 @@ public class ParsingServiceImpl implements ParsingService {
             netWeight = weights.get(1);
         }
 
+        boolean isDataMissing = (carNumber == null || scaledAt == null || grossWeight == 0.0);
+        boolean isUnreliable = (ocrResult.getConfidence() < 0.6 || weights.isEmpty());
+        boolean needsReview = isDataMissing || isUnreliable;
+
         WeightTicket ticket = WeightTicket.builder()
-            .carNumber(extractCarNumber(text))
+            .carNumber(carNumber)
             .grossWeight(grossWeight)
             .tareWeight(tareWeight)
             .netWeight(netWeight)
-            .scaledAt(extractScaledAt(text))
+            .scaledAt(scaledAt)
             .confidence(ocrResult.getConfidence())
-            .needsReview(ocrResult.getConfidence() < 0.6 || weights.isEmpty()) // 중량 없을 때도 검토 필요
+            .needsReview(needsReview)
             .build();
 
         return weightTicketRepository.save(ticket);
