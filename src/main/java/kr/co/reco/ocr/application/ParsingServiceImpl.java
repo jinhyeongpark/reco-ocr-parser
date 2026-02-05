@@ -30,7 +30,7 @@ public class ParsingServiceImpl implements ParsingService {
         Pattern.compile("([^kg\\n]{4,20})\\s*kg", Pattern.CASE_INSENSITIVE);
     private static final String TIME_REGEX = "\\d{2}:\\d{2}(?::\\d{2})?";
 
-    private static final String DATE_REGEX = "\\d{4}[-./]\\d{2}[-./]\\d{2}";
+    private static final String DATE_REGEX = "(\\d{4}|\\d{2})[-./]\\d{2}[-./]\\d{2}";
     @Override
     public WeightTicket parse(OcrResult ocrResult) {
         String text = ocrResult.getFullText();
