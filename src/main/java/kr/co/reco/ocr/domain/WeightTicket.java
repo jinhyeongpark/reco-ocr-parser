@@ -37,6 +37,7 @@ public class WeightTicket {
 
     private Double confidence;      // OCR 전체 신뢰도
     private boolean needsReview;    // 임계값 미만일 경우 true
+    private String reviewNote;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
