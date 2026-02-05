@@ -40,7 +40,7 @@ public class ParsingServiceImpl implements ParsingService {
         LocalDateTime scaledAt = extractScaledAt(text);
 
         WeightValues weightValues = resolveWeightValues(weights);
-        ReviewStatus reviewStatus = determineReviewStatus(carNumber, scaledAt, weightValues.grossWeight(), weights, ocrResult.getConfidence());
+        ReviewStatus reviewStatus = determineReviewStatus(carNumber, scaledAt, weightValues, weights, ocrResult.getConfidence());
 
         WeightTicket ticket = WeightTicket.builder()
             .carNumber(carNumber)
@@ -72,19 +72,26 @@ public class ParsingServiceImpl implements ParsingService {
         }
         return new WeightValues(gross, tare, net);
     }
-    private ReviewStatus determineReviewStatus(String carNumber, LocalDateTime scaledAt, double grossWeight, List<Double> weights, double confidence) {
+    private ReviewStatus determineReviewStatus(String carNumber, LocalDateTime scaledAt, WeightValues weightValues, List<Double> rawWeights, double confidence) {
         List<String> reasons = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
 
         if (carNumber == null || "UNKNOWN".equals(carNumber)) reasons.add("차량번호 누락");
         if (scaledAt == null) reasons.add("계량일시 누락");
-        if (grossWeight == 0.0) reasons.add("중량 정보 부족");
-        if (weights.isEmpty()) reasons.add("중량 데이터 추출 실패");
+        if (weightValues.grossWeight() == 0.0) reasons.add("중량 정보 부족");
+        if (rawWeights.isEmpty()) reasons.add("중량 데이터 추출 실패");
         if (confidence < 0.6) reasons.add(String.format("낮은 신뢰도(%.2f)", confidence));
 
-        boolean needsReview = !reasons.isEmpty();
-        String reviewNote = String.join(", ", reasons);
+        if (scaledAt != null && scaledAt.isAfter(now)) {
+            reasons.add("계량시간 이상(미래 시간)");
+        }
 
-        return new ReviewStatus(needsReview, reviewNote);
+        if (weightValues.grossWeight() > 0 && weightValues.netWeight() > 0 && weightValues.grossWeight() <= weightValues.netWeight()) {
+            reasons.add("중량 수치 이상(총중량 <= 실중량)");
+            log.warn("비정상 중량 탐지: 총중량({}) <= 실중량({})", weightValues.grossWeight(), weightValues.netWeight());
+        }
+
+        return new ReviewStatus(!reasons.isEmpty(), String.join(", ", reasons));
     }
 
     private record WeightValues(double grossWeight, double tareWeight, double netWeight) {}
