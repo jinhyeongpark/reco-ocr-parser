@@ -110,57 +110,85 @@ public class ParsingServiceTest {
     }
 
     @Nested
-    @DisplayName("데이터 검토 플래그(needsReview) 판정 로직")
-    class ReviewFlagLogic {
-        @Test
-        @DisplayName("검토 필요 테스트: OCR 신뢰도가 낮으면 needsReview가 true여야 한다")
-        void shouldMarkNeedsReviewWhenConfidenceIsLow() {
-            // given
+    @DisplayName("결측치 혹은 낮은 신뢰도로 인한 검토 필요")
+    class MissingValueLogic {
 
+        @Test
+        @DisplayName("OCR 신뢰도가 0.6 미만이면 needsReview가 true이고 사유가 명시되어야 한다")
+        void shouldMarkNeedsReviewWhenConfidenceIsLow() {
             OcrResult lowConfidenceResult = OcrResult.builder()
                 .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 10,000kg")
-                .confidence(0.55)
-                .build();// 신뢰도 0.6 미만
+                .confidence(0.55).build();
 
-            // when
             WeightTicket result = parsingService.parse(lowConfidenceResult);
 
-            // then
             assertThat(result.isNeedsReview()).isTrue();
+            assertThat(result.getReviewNote()).contains("낮은 신뢰도");
         }
 
         @Test
-        @DisplayName("검토 필요 테스트: 필수 데이터(차량번호) 추출 실패 시 needsReview가 true여야 한다")
-        void shouldMarkNeedsReviewWhenDataIsMissing() {
-            // given
-            OcrResult missingDataResult = OcrResult.builder()
-                .fullText("이 텍스트에는 차량번호 정보가 전혀 없습니다. 10,000kg")
-                .confidence(0.99)
-                .build();
+        @DisplayName("차량번호 추출 실패 시 needsReview가 true이고 사유가 명시되어야 한다")
+        void shouldMarkNeedsReviewWhenCarNumberIsMissing() {
+            OcrResult missingCarResult = OcrResult.builder()
+                .fullText("계량일시 2026-02-05 10:00 10,000kg") // 차량번호 패턴 없음
+                .confidence(0.99).build();
 
-            // when
-            WeightTicket result = parsingService.parse(missingDataResult);
+            WeightTicket result = parsingService.parse(missingCarResult);
 
-            // then
             assertThat(result.getCarNumber()).isEqualTo("UNKNOWN");
             assertThat(result.isNeedsReview()).isTrue();
+            assertThat(result.getReviewNote()).contains("차량번호 누락");
         }
 
         @Test
-        @DisplayName("검토 필요 테스트: 중량 정보가 하나도 없으면 needsReview가 true여야 한다")
+        @DisplayName("중량 정보가 전혀 없으면 needsReview가 true이고 사유가 명시되어야 한다")
         void shouldMarkNeedsReviewWhenWeightIsEmpty() {
-            // given
             OcrResult noWeightResult = OcrResult.builder()
-                .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 정보 없음")
-                .confidence(0.95)
-                .build();
+                .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 정보없음")
+                .confidence(0.95).build();
 
-            // when
             WeightTicket result = parsingService.parse(noWeightResult);
 
-            // then
             assertThat(result.getGrossWeight()).isEqualTo(0.0);
             assertThat(result.isNeedsReview()).isTrue();
+            assertThat(result.getReviewNote()).contains("중량 데이터 추출 실패");
+        }
+    }
+
+    @Nested
+    @DisplayName("데이터 이상치(Outlier) 탐지로 인한 검토 필요")
+    class OutlierValueLogic {
+
+        @Test
+        @DisplayName("계량 시간이 미래 시간인 경우 needsReview가 true이고 사유가 명시되어야 한다")
+        void shouldMarkNeedsReviewWhenDateIsFuture() {
+            // given: 현재 시간(2026년)보다 훨씬 미래인 2099년 데이터
+            OcrResult futureDateResult = OcrResult.builder()
+                .fullText("차량번호 12가3456 계량일시 2099-12-31 23:59 10,000kg")
+                .confidence(0.99).build();
+
+            // when
+            WeightTicket result = parsingService.parse(futureDateResult);
+
+            // then
+            assertThat(result.isNeedsReview()).isTrue();
+            assertThat(result.getReviewNote()).contains("미래 시간");
+        }
+
+        @Test
+        @DisplayName("총중량이 실중량보다 작거나 같은 경우(중량 역전) needsReview가 true여야 한다")
+        void shouldMarkNeedsReviewWhenWeightsAreInverted() {
+            // given: 총중량(5,000) < 실중량(12,000)인 비정상 데이터
+            OcrResult invertedWeightResult = OcrResult.builder()
+                .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 총중량 5,000kg 실중량 12,000kg")
+                .confidence(0.99).build();
+
+            // when
+            WeightTicket result = parsingService.parse(invertedWeightResult);
+
+            // then
+            assertThat(result.isNeedsReview()).isTrue();
+            assertThat(result.getReviewNote()).contains("중량 수치 이상");
         }
     }
 }
