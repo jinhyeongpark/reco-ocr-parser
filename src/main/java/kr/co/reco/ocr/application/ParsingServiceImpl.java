@@ -35,45 +35,60 @@ public class ParsingServiceImpl implements ParsingService {
     public WeightTicket parse(OcrResult ocrResult) {
         String text = ocrResult.getFullText();
 
-        System.out.println("--- [DEBUG] OCR 추출 텍스트 시작 ---");
-        System.out.println(text);
-        System.out.println("--- [DEBUG] OCR 추출 텍스트 끝 ---");
-
         List<Double> weights = extractWeightsByReverse(text);
         String carNumber = extractCarNumber(text);
         LocalDateTime scaledAt = extractScaledAt(text);
 
-        double grossWeight = 0.0;
-        double tareWeight = 0.0;
-        double netWeight = 0.0;
-
-        if (weights.size() >= 3) {
-            // 3개 이상일 때: [0]=총중량, [1]=공차중량, [2]=실중량
-            grossWeight = weights.get(0);
-            tareWeight = weights.get(1);
-            netWeight = weights.get(2);
-        } else if (weights.size() == 2) {
-            // 2개일 때: [0]=총중량, [1]=실중량 (진형님의 요청 사항)
-            grossWeight = weights.get(0);
-            netWeight = weights.get(1);
-        }
-
-        boolean isDataMissing = (carNumber == null || scaledAt == null || grossWeight == 0.0);
-        boolean isUnreliable = (ocrResult.getConfidence() < 0.6 || weights.isEmpty());
-        boolean needsReview = isDataMissing || isUnreliable;
+        WeightValues weightValues = resolveWeightValues(weights);
+        ReviewStatus reviewStatus = determineReviewStatus(carNumber, scaledAt, weightValues.grossWeight(), weights, ocrResult.getConfidence());
 
         WeightTicket ticket = WeightTicket.builder()
             .carNumber(carNumber)
-            .grossWeight(grossWeight)
-            .tareWeight(tareWeight)
-            .netWeight(netWeight)
+            .grossWeight(weightValues.grossWeight())
+            .tareWeight(weightValues.tareWeight())
+            .netWeight(weightValues.netWeight())
             .scaledAt(scaledAt)
             .confidence(ocrResult.getConfidence())
-            .needsReview(needsReview)
+            .needsReview(reviewStatus.needsReview())
+            .reviewNote(reviewStatus.reviewNote())
             .build();
 
         return weightTicketRepository.save(ticket);
     }
+
+    private WeightValues resolveWeightValues(List<Double> weights) {
+        double gross = 0.0;
+        double tare = 0.0;
+        double net = 0.0;
+
+        if (weights.size() >= 3) {
+            gross = weights.get(0);
+            tare = weights.get(1);
+            net = weights.get(2);
+        } else if (weights.size() == 2) {
+            gross = weights.get(0);
+            net = weights.get(1);
+            tare = gross - net;
+        }
+        return new WeightValues(gross, tare, net);
+    }
+    private ReviewStatus determineReviewStatus(String carNumber, LocalDateTime scaledAt, double grossWeight, List<Double> weights, double confidence) {
+        List<String> reasons = new ArrayList<>();
+
+        if (carNumber == null || "UNKNOWN".equals(carNumber)) reasons.add("차량번호 누락");
+        if (scaledAt == null) reasons.add("계량일시 누락");
+        if (grossWeight == 0.0) reasons.add("중량 정보 부족");
+        if (weights.isEmpty()) reasons.add("중량 데이터 추출 실패");
+        if (confidence < 0.6) reasons.add(String.format("낮은 신뢰도(%.2f)", confidence));
+
+        boolean needsReview = !reasons.isEmpty();
+        String reviewNote = String.join(", ", reasons);
+
+        return new ReviewStatus(needsReview, reviewNote);
+    }
+
+    private record WeightValues(double grossWeight, double tareWeight, double netWeight) {}
+    private record ReviewStatus(boolean needsReview, String reviewNote) {}
 
     private String extractCarNumber(String text) {
         Matcher carLabelMatcher = CAR_PATTERN.matcher(text);
