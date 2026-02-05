@@ -1,5 +1,6 @@
 package kr.co.reco.ocr.domain;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,14 +19,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@JsonPropertyOrder({ "id", "carNumber", "grossWeight", "tareWeight", "netWeight", "scaledAt", "confidence", "needsReview", "createdAt" })
 public class WeightTicket {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private String documentType; // 증명서, 확인서, 계량표 등 정규화된 값
-    private String vendorName;   // 발행처 (동우 바이오, 하은펄프)
 
     @Column(nullable = false)
     private String carNumber;
@@ -38,6 +37,7 @@ public class WeightTicket {
 
     private Double confidence;      // OCR 전체 신뢰도
     private boolean needsReview;    // 임계값 미만일 경우 true
+    private String reviewNote;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;
