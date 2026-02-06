@@ -1,12 +1,7 @@
 package kr.co.reco.ocr.application;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import kr.co.reco.ocr.application.dto.OcrResult;
 import kr.co.reco.ocr.domain.WeightTicket;
 import kr.co.reco.ocr.domain.WeightTicketRepository;
@@ -35,7 +30,7 @@ public class ParsingServiceImpl implements ParsingService {
         String text = ocrResult.getFullText();
 
         List<Double> weights = regexExtractor.extractWeights(text);
-        if (weights.isEmpty()) {
+        if (weights.size() < 2) {
             throw new CustomException(ErrorCode.OCR_PARSING_FAILED);
         }
 
