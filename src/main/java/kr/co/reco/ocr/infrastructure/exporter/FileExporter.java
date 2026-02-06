@@ -7,8 +7,7 @@ import kr.co.reco.ocr.domain.WeightTicket;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 @Component
 @RequiredArgsConstructor
 public class FileExporter {
@@ -26,7 +25,11 @@ public class FileExporter {
 
     private void saveToJson(WeightTicket ticket) {
         File file = new File(outputPath, "ticket_" + ticket.getId() + ".json");
-        objectMapper.writeValue(file, ticket);
+        try {
+            objectMapper.writeValue(file, ticket);
+        } catch (IOException e) {
+            throw new RuntimeException("JSON 저장 실패: " + ticket.getId(), e);
+        }
     }
 
     private void saveToCsv(WeightTicket ticket) {

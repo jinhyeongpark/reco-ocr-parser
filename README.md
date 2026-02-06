@@ -45,7 +45,7 @@ QueryDSL을 활용하여 조건별 동적 검색을 지원합니다.
 - Example (전체조회): `GET localhost:8080/api/v1/weight-tickets`
 
 ## 3. 의존성 및 개발 환경
-- Framework: Spring Boot 4.0.2
+- Framework: Spring Boot 3.3.0
 - Language: Java 17 (Toolchain 적용)
 - Build Tool: Gradle
 - Database: H2 (In-memory)

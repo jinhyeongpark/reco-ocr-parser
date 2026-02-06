@@ -33,6 +33,8 @@ public class QWeightTicket extends EntityPathBase<WeightTicket> {
 
     public final NumberPath<Double> netWeight = createNumber("netWeight", Double.class);
 
+    public final StringPath reviewNote = createString("reviewNote");
+
     public final DateTimePath<java.time.LocalDateTime> scaledAt = createDateTime("scaledAt", java.time.LocalDateTime.class);
 
     public final NumberPath<Double> tareWeight = createNumber("tareWeight", Double.class);
