@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 import kr.co.reco.ocr.application.dto.OcrResult;
 import kr.co.reco.ocr.domain.WeightTicket;
 import kr.co.reco.ocr.domain.WeightTicketRepository;
+import kr.co.reco.ocr.global.error.CustomException;
+import kr.co.reco.ocr.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,25 +35,30 @@ public class ParsingServiceImpl implements ParsingService {
     private static final String DATE_REGEX = "(\\d{4}|\\d{2})[-./]\\d{2}[-./]\\d{2}";
     @Override
     public WeightTicket parse(OcrResult ocrResult) {
+
+        if (ocrResult == null || ocrResult.getFullText() == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT);
+        }
+
         String text = ocrResult.getFullText();
 
         List<Double> weights = extractWeightsByReverse(text);
+
+        if (weights.isEmpty()) {
+            throw new CustomException(ErrorCode.OCR_PARSING_FAILED);
+        }
+
         String carNumber = extractCarNumber(text);
         LocalDateTime scaledAt = extractScaledAt(text);
-
         WeightValues weightValues = resolveWeightValues(weights);
-        ReviewStatus reviewStatus = determineReviewStatus(carNumber, scaledAt, weightValues, weights, ocrResult.getConfidence());
-
-        WeightTicket ticket = WeightTicket.builder()
-            .carNumber(carNumber)
-            .grossWeight(weightValues.grossWeight())
-            .tareWeight(weightValues.tareWeight())
-            .netWeight(weightValues.netWeight())
-            .scaledAt(scaledAt)
-            .confidence(ocrResult.getConfidence())
-            .needsReview(reviewStatus.needsReview())
-            .reviewNote(reviewStatus.reviewNote())
-            .build();
+        WeightTicket ticket = WeightTicket.create(
+            carNumber,
+            weightValues.grossWeight(),
+            weightValues.tareWeight(),
+            weightValues.netWeight(),
+            scaledAt,
+            ocrResult.getConfidence()
+        );
 
         return weightTicketRepository.save(ticket);
     }
@@ -72,30 +79,8 @@ public class ParsingServiceImpl implements ParsingService {
         }
         return new WeightValues(gross, tare, net);
     }
-    private ReviewStatus determineReviewStatus(String carNumber, LocalDateTime scaledAt, WeightValues weightValues, List<Double> rawWeights, double confidence) {
-        List<String> reasons = new ArrayList<>();
-        LocalDateTime now = LocalDateTime.now();
-
-        if (carNumber == null || "UNKNOWN".equals(carNumber)) reasons.add("차량번호 누락");
-        if (scaledAt == null) reasons.add("계량일시 누락");
-        if (weightValues.grossWeight() == 0.0) reasons.add("중량 정보 부족");
-        if (rawWeights.isEmpty()) reasons.add("중량 데이터 추출 실패");
-        if (confidence < 0.6) reasons.add(String.format("낮은 신뢰도(%.2f)", confidence));
-
-        if (scaledAt != null && scaledAt.isAfter(now)) {
-            reasons.add("계량시간 이상(미래 시간)");
-        }
-
-        if (weightValues.grossWeight() > 0 && weightValues.netWeight() > 0 && weightValues.grossWeight() <= weightValues.netWeight()) {
-            reasons.add("중량 수치 이상(총중량 <= 실중량)");
-            log.warn("비정상 중량 탐지: 총중량({}) <= 실중량({})", weightValues.grossWeight(), weightValues.netWeight());
-        }
-
-        return new ReviewStatus(!reasons.isEmpty(), String.join(", ", reasons));
-    }
 
     private record WeightValues(double grossWeight, double tareWeight, double netWeight) {}
-    private record ReviewStatus(boolean needsReview, String reviewNote) {}
 
     private String extractCarNumber(String text) {
         Matcher carLabelMatcher = CAR_PATTERN.matcher(text);
