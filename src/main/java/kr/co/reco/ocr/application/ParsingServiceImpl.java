@@ -15,14 +15,21 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ParsingServiceImpl implements ParsingService {
 
-    @Value("${ocr.policy.confidence-threshold:0.6}") // 기본값 0.6 설정
-    private double confidenceThreshold;
+    private final double confidenceThreshold;
 
     private final WeightTicketRepository weightTicketRepository;
     private final RegexExtractor regexExtractor;
+
+    public ParsingServiceImpl(
+        @Value("${app.ocr.policy.confidence-threshold:0.6}") double confidenceThreshold,
+        WeightTicketRepository weightTicketRepository,
+        RegexExtractor regexExtractor) {
+        this.confidenceThreshold = confidenceThreshold;
+        this.weightTicketRepository = weightTicketRepository;
+        this.regexExtractor = regexExtractor;
+    }
 
     @Override
     public WeightTicket parse(OcrResult ocrResult) {
