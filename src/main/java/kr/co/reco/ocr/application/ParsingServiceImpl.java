@@ -10,12 +10,16 @@ import kr.co.reco.ocr.global.error.ErrorCode;
 import kr.co.reco.ocr.infrastructure.ocr.RegexExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ParsingServiceImpl implements ParsingService {
+
+    @Value("${ocr.policy.confidence-threshold:0.6}") // 기본값 0.6 설정
+    private double confidenceThreshold;
 
     private final WeightTicketRepository weightTicketRepository;
     private final RegexExtractor regexExtractor;
@@ -43,7 +47,8 @@ public class ParsingServiceImpl implements ParsingService {
             weightValues.tareWeight(),
             weightValues.netWeight(),
             scaledAt,
-            ocrResult.getConfidence()
+            ocrResult.getConfidence(),
+            confidenceThreshold
         );
 
         return weightTicketRepository.save(ticket);

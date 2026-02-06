@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 
 @Entity
 @Getter
@@ -23,6 +24,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @JsonPropertyOrder({ "id", "carNumber", "grossWeight", "tareWeight", "netWeight", "scaledAt", "confidence", "needsReview", "createdAt" })
 public class WeightTicket {
+
+    @Value("${ocr.policy.confidence-threshold}")
+    private double confidenceThreshold;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -57,9 +61,9 @@ public class WeightTicket {
     }
 
     public static WeightTicket create(String carNumber, Double grossWeight, Double tareWeight,
-        Double netWeight, LocalDateTime scaledAt, Double confidence) {
+        Double netWeight, LocalDateTime scaledAt, Double confidence, double threshold) {
 
-        ReviewStatus status = validate(carNumber, scaledAt, grossWeight, netWeight, confidence);
+        ReviewStatus status = validate(carNumber, scaledAt, grossWeight, netWeight, confidence, threshold);
 
         return new WeightTicket(
             carNumber, grossWeight, tareWeight, netWeight,
@@ -68,14 +72,14 @@ public class WeightTicket {
     }
 
     private static ReviewStatus validate(String carNumber, LocalDateTime scaledAt, Double grossWeight,
-        Double netWeight, Double confidence) {
+        Double netWeight, Double confidence, double threshold) {
         List<String> reasons = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
         if (carNumber == null || "UNKNOWN".equals(carNumber)) reasons.add("차량번호 누락");
         if (scaledAt == null) reasons.add("계량일시 누락");
         if (grossWeight == null || grossWeight == 0.0) reasons.add("중량 정보 부족");
-        if (confidence != null && confidence < 0.6) {
+        if (confidence != null && confidence < threshold) {
             reasons.add(String.format("낮은 신뢰도(%.2f)", confidence));
         }
         if (scaledAt != null && scaledAt.isAfter(now)) {
