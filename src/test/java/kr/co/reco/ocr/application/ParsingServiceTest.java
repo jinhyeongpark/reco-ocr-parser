@@ -1,15 +1,19 @@
 package kr.co.reco.ocr.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import kr.co.reco.ocr.application.dto.OcrResult;
 import kr.co.reco.ocr.domain.WeightTicket;
 import kr.co.reco.ocr.domain.WeightTicketRepository;
+import kr.co.reco.ocr.global.error.CustomException;
+import kr.co.reco.ocr.global.error.ErrorCode;
 import kr.co.reco.ocr.infrastructure.ocr.RawTextExtractor;
+import kr.co.reco.ocr.infrastructure.ocr.RegexExtractor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,6 +27,7 @@ public class ParsingServiceTest {
 
     private RawTextExtractor extractor;
     private ParsingService parsingService;
+    private RegexExtractor regexExtractor;
 
     @Mock
     private WeightTicketRepository weightTicketRepository;
@@ -32,9 +37,11 @@ public class ParsingServiceTest {
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
         extractor = new RawTextExtractor(objectMapper);
-        parsingService = new ParsingServiceImpl(weightTicketRepository);
 
-        when(weightTicketRepository.save(any(WeightTicket.class)))
+        this.regexExtractor = new RegexExtractor();
+        parsingService = new ParsingServiceImpl(weightTicketRepository, regexExtractor);
+
+        lenient().when(weightTicketRepository.save(any(WeightTicket.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -117,7 +124,7 @@ public class ParsingServiceTest {
         @DisplayName("OCR 신뢰도가 0.6 미만이면 needsReview가 true이고 사유가 명시되어야 한다")
         void shouldMarkNeedsReviewWhenConfidenceIsLow() {
             OcrResult lowConfidenceResult = OcrResult.builder()
-                .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 10,000kg")
+                .fullText("계량일시 2026-02-05 10:00 총중량 12,000kg 실중량 8,000kg")
                 .confidence(0.55).build();
 
             WeightTicket result = parsingService.parse(lowConfidenceResult);
@@ -130,7 +137,7 @@ public class ParsingServiceTest {
         @DisplayName("차량번호 추출 실패 시 needsReview가 true이고 사유가 명시되어야 한다")
         void shouldMarkNeedsReviewWhenCarNumberIsMissing() {
             OcrResult missingCarResult = OcrResult.builder()
-                .fullText("계량일시 2026-02-05 10:00 10,000kg") // 차량번호 패턴 없음
+                .fullText("계량일시 2026-02-05 10:00 총중량 12,000kg 실중량 8,000kg") // 차량번호 패턴 없음
                 .confidence(0.99).build();
 
             WeightTicket result = parsingService.parse(missingCarResult);
@@ -138,20 +145,6 @@ public class ParsingServiceTest {
             assertThat(result.getCarNumber()).isEqualTo("UNKNOWN");
             assertThat(result.isNeedsReview()).isTrue();
             assertThat(result.getReviewNote()).contains("차량번호 누락");
-        }
-
-        @Test
-        @DisplayName("중량 정보가 전혀 없으면 needsReview가 true이고 사유가 명시되어야 한다")
-        void shouldMarkNeedsReviewWhenWeightIsEmpty() {
-            OcrResult noWeightResult = OcrResult.builder()
-                .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 정보없음")
-                .confidence(0.95).build();
-
-            WeightTicket result = parsingService.parse(noWeightResult);
-
-            assertThat(result.getGrossWeight()).isEqualTo(0.0);
-            assertThat(result.isNeedsReview()).isTrue();
-            assertThat(result.getReviewNote()).contains("중량 데이터 추출 실패");
         }
     }
 
@@ -164,7 +157,7 @@ public class ParsingServiceTest {
         void shouldMarkNeedsReviewWhenDateIsFuture() {
             // given: 현재 시간(2026년)보다 훨씬 미래인 2099년 데이터
             OcrResult futureDateResult = OcrResult.builder()
-                .fullText("차량번호 12가3456 계량일시 2099-12-31 23:59 10,000kg")
+                .fullText("차량번호 12가3456 계량일시 2099-12-31 23:59 10,000kg, 15,000kg")
                 .confidence(0.99).build();
 
             // when
@@ -185,10 +178,30 @@ public class ParsingServiceTest {
 
             // when
             WeightTicket result = parsingService.parse(invertedWeightResult);
-
+            System.out.println(result.getGrossWeight());
+            System.out.println(result.getNetWeight());
             // then
             assertThat(result.isNeedsReview()).isTrue();
             assertThat(result.getReviewNote()).contains("중량 수치 이상");
+        }
+    }
+
+    @Nested
+    @DisplayName("실패 및 검토 시나리오 검증")
+    class FailureAndReviewLogic {
+
+        @Test
+        @DisplayName("중량 데이터가 2개 미만(0개 또는 1개)이면 CustomException이 발생한다")
+        void shouldThrowExceptionWhenWeightsAreInsufficient() {
+            // given: 중량이 1개만 있는 데이터
+            OcrResult insufficientWeightResult = OcrResult.builder()
+                .fullText("차량번호 12가3456 계량일시 2026-02-05 10:00 총중량 10,000kg")
+                .confidence(0.95).build();
+
+            // when & then:
+            assertThatThrownBy(() -> parsingService.parse(insufficientWeightResult))
+                .isInstanceOf(CustomException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.OCR_PARSING_FAILED);
         }
     }
 }

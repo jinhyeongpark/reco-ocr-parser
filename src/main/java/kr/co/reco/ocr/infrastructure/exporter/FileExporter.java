@@ -4,10 +4,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import kr.co.reco.ocr.domain.WeightTicket;
+import kr.co.reco.ocr.global.error.CustomException;
+import kr.co.reco.ocr.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FileExporter {
@@ -28,7 +33,8 @@ public class FileExporter {
         try {
             objectMapper.writeValue(file, ticket);
         } catch (IOException e) {
-            throw new RuntimeException("JSON 저장 실패: " + ticket.getId(), e);
+            log.error("JSON Export Failed: Ticket ID {}", ticket.getId(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -40,7 +46,8 @@ public class FileExporter {
                 ticket.getId(), ticket.getCarNumber(), ticket.getGrossWeight(),
                 ticket.getTareWeight(), ticket.getNetWeight(), ticket.getScaledAt());
         } catch (IOException e) {
-            throw new RuntimeException("CSV 저장 실패", e);
+            log.error("Csv Export Failed: Ticket ID {}", ticket.getId(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 

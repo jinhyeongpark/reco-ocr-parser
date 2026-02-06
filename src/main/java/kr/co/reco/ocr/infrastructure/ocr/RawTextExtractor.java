@@ -3,10 +3,14 @@ package kr.co.reco.ocr.infrastructure.ocr;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
 import kr.co.reco.ocr.application.dto.OcrResult;
+import kr.co.reco.ocr.global.error.CustomException;
+import kr.co.reco.ocr.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class RawTextExtractor {
@@ -16,6 +20,10 @@ public class RawTextExtractor {
     public OcrResult extract(String filePath) {
         File jsonFile = new File(filePath);
 
+        if (!jsonFile.exists()) {
+            throw new CustomException(ErrorCode.SAMPLE_FILE_NOT_FOUND);
+        }
+
         try {
             JsonNode root = objectMapper.readTree(jsonFile);
 
@@ -23,13 +31,18 @@ public class RawTextExtractor {
             String fullText = root.path("text").asText();
             Double confidence = root.path("confidence").asDouble();
 
+            if (fullText == null || fullText.isBlank()) {
+                throw new CustomException(ErrorCode.OCR_PARSING_FAILED);
+            }
+
             return OcrResult.builder()
                 .fullText(fullText)
                 .confidence(confidence)
                 .build();
 
         } catch (Exception e) {
-            throw new RuntimeException("OCR JSON 파일 읽기 실패: " + filePath, e);
+            log.error("OCR JSON Parsing Error: {}", filePath, e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
