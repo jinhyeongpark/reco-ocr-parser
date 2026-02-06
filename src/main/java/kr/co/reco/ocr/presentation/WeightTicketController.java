@@ -5,6 +5,7 @@ import kr.co.reco.ocr.application.WeightTicketService;
 import kr.co.reco.ocr.application.dto.OcrResult;
 import kr.co.reco.ocr.application.dto.WeightTicketSearchRequest;
 import kr.co.reco.ocr.domain.WeightTicket;
+import kr.co.reco.ocr.global.common.ApiResponse;
 import kr.co.reco.ocr.infrastructure.ocr.RawTextExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,14 +24,14 @@ public class WeightTicketController {
     private final RawTextExtractor extractor;
 
     @PostMapping("/samples/{fileName}")
-    public ResponseEntity<WeightTicket> parseSample(@PathVariable("fileName") String fileName) {
+    public ResponseEntity<ApiResponse<WeightTicket>> parseSample(@PathVariable("fileName") String fileName) {
         OcrResult ocrResult = extractor.extract("src/main/resources/sample/" + fileName);
-        return ResponseEntity.ok(weightTicketService.parseAndSave(ocrResult));
+        return ResponseEntity.ok(ApiResponse.onSuccess(weightTicketService.parseAndSave(ocrResult)));
     }
 
     @GetMapping
-    public ResponseEntity<List<WeightTicket>> getTickets(
+    public ResponseEntity<ApiResponse<List<WeightTicket>>> getTickets(
         WeightTicketSearchRequest condition) {
-        return ResponseEntity.ok(weightTicketService.searchTickets(condition));
+        return ResponseEntity.ok(ApiResponse.onSuccess(weightTicketService.searchTickets(condition)));
     }
 }
