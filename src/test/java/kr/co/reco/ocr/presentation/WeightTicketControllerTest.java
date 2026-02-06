@@ -64,15 +64,15 @@ class WeightTicketControllerTest {
         // when & then: POST 요청을 보내고 그 결과를 문자열로 받아 id 추출
         String contentAsString = mockMvc.perform(post("/api/v1/weight-tickets/samples/" + fileName))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.carNumber").value("8713"))
-            .andExpect(jsonPath("$.grossWeight").value(12480.0))
-            .andExpect(jsonPath("$.needsReview").value(false))
-            .andExpect(jsonPath("$.reviewNote").isEmpty())
+            .andExpect(jsonPath("$.result.carNumber").value("8713"))
+            .andExpect(jsonPath("$.result.grossWeight").value(12480.0))
+            .andExpect(jsonPath("$.result.needsReview").value(false))
+            .andExpect(jsonPath("$.result.reviewNote").isEmpty())
             .andReturn()
             .getResponse()
             .getContentAsString();
 
-        Integer actualId = com.jayway.jsonpath.JsonPath.read(contentAsString, "$.id");
+        Integer actualId = com.jayway.jsonpath.JsonPath.read(contentAsString, "$.result.id");
 
         Path jsonPath = Paths.get("output", "ticket_" + actualId + ".json");
         Path csvPath = Paths.get("output", "ticket_" + actualId + ".csv");
@@ -92,7 +92,7 @@ class WeightTicketControllerTest {
                 .param("carNumber", "80")
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))))
-            .andExpect(jsonPath("$[0].carNumber", containsString("80")));
+            .andExpect(jsonPath("$.result", hasSize(greaterThanOrEqualTo(1))))
+            .andExpect(jsonPath("$.result[0].carNumber", containsString("80")));
     }
 }
