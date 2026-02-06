@@ -83,6 +83,8 @@ public class RegexExtractor {
     }
 
     private String removeTimeReference(String segment) {
+        segment = segment.replaceAll("\\d{2,4}[-./]\\d{1,2}[-./]\\d{1,2}", "");
+
         if (segment.contains("분")) {
             return segment.replaceAll(".*분\\s*", "");
         }
