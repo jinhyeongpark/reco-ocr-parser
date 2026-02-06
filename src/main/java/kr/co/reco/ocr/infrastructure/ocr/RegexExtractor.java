@@ -74,17 +74,23 @@ public class RegexExtractor {
     }
 
     private String getOnlyNumber(Matcher kgMatcher) {
-        String segment = kgMatcher.group(1);
-        String cleanSegment = segment;
+        String rawSegment = kgMatcher.group(1);
+        String preProcessed = removeTimeReference(rawSegment);
 
+        String weightRegion = preProcessed.replaceAll("^.*[^0-9,.\\s]+", "");
+
+        return weightRegion.replaceAll("[^0-9.]", "");
+    }
+
+    private String removeTimeReference(String segment) {
         if (segment.contains("분")) {
-            cleanSegment = segment.replaceAll(".*분\\s*", "");
-        } else if (segment.contains(":")) {
-            cleanSegment = segment.replaceAll("\\d{1,2}\\s*:\\s*\\d{1,2}(\\s*:\\s*\\d{1,2})?", "");
-            cleanSegment = cleanSegment.replaceAll(".*[:시]\\s*", "");
+            return segment.replaceAll(".*분\\s*", "");
         }
-
-        return cleanSegment.replaceAll("[^0-9,.]", "").replaceAll("[,\\s]", "");
+        if (segment.contains(":")) {
+            String noFormatTime = segment.replaceAll("\\d{1,2}\\s*:\\s*\\d{1,2}(\\s*:\\s*\\d{1,2})?", "");
+            return noFormatTime.replaceAll(".*[:시]\\s*", "");
+        }
+        return segment;
     }
 
     private String findLastPattern(String text, String regex) {
