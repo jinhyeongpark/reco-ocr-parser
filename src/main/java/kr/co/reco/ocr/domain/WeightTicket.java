@@ -76,6 +76,17 @@ public class WeightTicket {
         );
     }
 
+    public void update(String carNumber, Double grossWeight, Double tareWeight, Double netWeight, LocalDateTime scaledAt) {
+        this.carNumber = carNumber;
+        this.grossWeight = grossWeight;
+        this.tareWeight = tareWeight;
+        this.netWeight = netWeight;
+        this.scaledAt = scaledAt;
+
+        this.needsReview = false;
+        this.reviewNote = String.format("[수기 수정 완료] %s", LocalDateTime.now());
+    }
+
     private static ReviewStatus validate(String carNumber, LocalDateTime scaledAt, Double grossWeight,
         Double netWeight, Double confidence, double threshold) {
         List<String> reasons = new ArrayList<>();
