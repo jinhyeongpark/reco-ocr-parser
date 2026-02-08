@@ -41,13 +41,11 @@ public class ParsingServiceImpl implements ParsingService {
         String text = ocrResult.getFullText();
 
         List<Double> weights = regexExtractor.extractWeights(text);
-        if (weights.size() < 2) {
-            throw new CustomException(ErrorCode.OCR_PARSING_FAILED);
-        }
-
         String carNumber = regexExtractor.extractCarNumber(text);
         LocalDateTime scaledAt = regexExtractor.extractScaledAt(text);
+
         WeightValues weightValues = resolveWeightValues(weights);
+
         WeightTicket ticket = WeightTicket.create(
             carNumber,
             weightValues.grossWeight(),
@@ -62,7 +60,7 @@ public class ParsingServiceImpl implements ParsingService {
     }
 
     private WeightValues resolveWeightValues(List<Double> weights) {
-        double gross = 0.0;
+        double gross = (!weights.isEmpty()) ? weights.get(0) : 0.0;
         double tare = 0.0;
         double net = 0.0;
 
