@@ -39,7 +39,7 @@ public class ParsingServiceTest {
         extractor = new RawTextExtractor(objectMapper);
 
         this.regexExtractor = new RegexExtractor();
-        parsingService = new ParsingServiceImpl(weightTicketRepository, regexExtractor);
+        parsingService = new ParsingServiceImpl(0.6, weightTicketRepository, regexExtractor);
 
         lenient().when(weightTicketRepository.save(any(WeightTicket.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));

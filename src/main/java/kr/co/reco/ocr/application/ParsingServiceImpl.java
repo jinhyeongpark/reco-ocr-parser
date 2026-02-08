@@ -10,15 +10,26 @@ import kr.co.reco.ocr.global.error.ErrorCode;
 import kr.co.reco.ocr.infrastructure.ocr.RegexExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ParsingServiceImpl implements ParsingService {
+
+    private final double confidenceThreshold;
 
     private final WeightTicketRepository weightTicketRepository;
     private final RegexExtractor regexExtractor;
+
+    public ParsingServiceImpl(
+        @Value("${app.ocr.policy.confidence-threshold:0.6}") double confidenceThreshold,
+        WeightTicketRepository weightTicketRepository,
+        RegexExtractor regexExtractor) {
+        this.confidenceThreshold = confidenceThreshold;
+        this.weightTicketRepository = weightTicketRepository;
+        this.regexExtractor = regexExtractor;
+    }
 
     @Override
     public WeightTicket parse(OcrResult ocrResult) {
@@ -30,27 +41,26 @@ public class ParsingServiceImpl implements ParsingService {
         String text = ocrResult.getFullText();
 
         List<Double> weights = regexExtractor.extractWeights(text);
-        if (weights.size() < 2) {
-            throw new CustomException(ErrorCode.OCR_PARSING_FAILED);
-        }
-
         String carNumber = regexExtractor.extractCarNumber(text);
         LocalDateTime scaledAt = regexExtractor.extractScaledAt(text);
+
         WeightValues weightValues = resolveWeightValues(weights);
+
         WeightTicket ticket = WeightTicket.create(
             carNumber,
             weightValues.grossWeight(),
             weightValues.tareWeight(),
             weightValues.netWeight(),
             scaledAt,
-            ocrResult.getConfidence()
+            ocrResult.getConfidence(),
+            confidenceThreshold
         );
 
         return weightTicketRepository.save(ticket);
     }
 
     private WeightValues resolveWeightValues(List<Double> weights) {
-        double gross = 0.0;
+        double gross = (!weights.isEmpty()) ? weights.get(0) : 0.0;
         double tare = 0.0;
         double net = 0.0;
 

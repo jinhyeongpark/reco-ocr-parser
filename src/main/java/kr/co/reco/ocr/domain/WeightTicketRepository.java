@@ -6,6 +6,4 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface WeightTicketRepository extends JpaRepository<WeightTicket, Long> {
-
-    List<WeightTicket> findAllByNeedsReviewTrue();
 }

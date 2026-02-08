@@ -31,3 +31,5 @@ app:
   ocr:
     sample-path: src/main/resources/samples/
     output-path: output/
+    policy:
+      confidence-threshold: 0.6

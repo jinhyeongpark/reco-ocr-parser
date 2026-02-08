@@ -3,6 +3,7 @@ package kr.co.reco.ocr.domain;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -15,12 +16,16 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 @JsonPropertyOrder({ "id", "carNumber", "grossWeight", "tareWeight", "netWeight", "scaledAt", "confidence", "needsReview", "createdAt" })
 public class WeightTicket {
 
@@ -41,6 +46,7 @@ public class WeightTicket {
     private boolean needsReview;    // 임계값 미만일 경우 true
     private String reviewNote;
 
+    @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -57,9 +63,9 @@ public class WeightTicket {
     }
 
     public static WeightTicket create(String carNumber, Double grossWeight, Double tareWeight,
-        Double netWeight, LocalDateTime scaledAt, Double confidence) {
+        Double netWeight, LocalDateTime scaledAt, Double confidence, double threshold) {
 
-        ReviewStatus status = validate(carNumber, scaledAt, grossWeight, netWeight, confidence);
+        ReviewStatus status = validate(carNumber, scaledAt, grossWeight, netWeight, confidence, threshold);
 
         return new WeightTicket(
             carNumber, grossWeight, tareWeight, netWeight,
@@ -67,15 +73,26 @@ public class WeightTicket {
         );
     }
 
+    public void update(String carNumber, Double grossWeight, Double tareWeight, Double netWeight, LocalDateTime scaledAt) {
+        this.carNumber = carNumber;
+        this.grossWeight = grossWeight;
+        this.tareWeight = tareWeight;
+        this.netWeight = netWeight;
+        this.scaledAt = scaledAt;
+
+        this.needsReview = false;
+        this.reviewNote = String.format("[수기 수정 완료] %s", LocalDateTime.now());
+    }
+
     private static ReviewStatus validate(String carNumber, LocalDateTime scaledAt, Double grossWeight,
-        Double netWeight, Double confidence) {
+        Double netWeight, Double confidence, double threshold) {
         List<String> reasons = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
 
         if (carNumber == null || "UNKNOWN".equals(carNumber)) reasons.add("차량번호 누락");
         if (scaledAt == null) reasons.add("계량일시 누락");
         if (grossWeight == null || grossWeight == 0.0) reasons.add("중량 정보 부족");
-        if (confidence != null && confidence < 0.6) {
+        if (confidence != null && confidence < threshold) {
             reasons.add(String.format("낮은 신뢰도(%.2f)", confidence));
         }
         if (scaledAt != null && scaledAt.isAfter(now)) {
@@ -90,11 +107,6 @@ public class WeightTicket {
 
     private static boolean isWeightInvalid(Double gross, Double net) {
         return gross != null && net != null && gross > 0 && net > 0 && gross <= net;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     private record ReviewStatus(boolean needsReview, String reviewNote) {}

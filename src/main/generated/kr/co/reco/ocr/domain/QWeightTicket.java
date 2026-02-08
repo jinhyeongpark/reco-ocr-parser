@@ -23,6 +23,8 @@ public class QWeightTicket extends EntityPathBase<WeightTicket> {
 
     public final NumberPath<Double> confidence = createNumber("confidence", Double.class);
 
+    public final NumberPath<Double> confidenceThreshold = createNumber("confidenceThreshold", Double.class);
+
     public final DateTimePath<java.time.LocalDateTime> createdAt = createDateTime("createdAt", java.time.LocalDateTime.class);
 
     public final NumberPath<Double> grossWeight = createNumber("grossWeight", Double.class);
