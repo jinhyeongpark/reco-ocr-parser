@@ -3,6 +3,7 @@ package kr.co.reco.ocr.domain;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -16,12 +17,15 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 @JsonPropertyOrder({ "id", "carNumber", "grossWeight", "tareWeight", "netWeight", "scaledAt", "confidence", "needsReview", "createdAt" })
 public class WeightTicket {
 
@@ -45,6 +49,7 @@ public class WeightTicket {
     private boolean needsReview;    // 임계값 미만일 경우 true
     private String reviewNote;
 
+    @CreatedDate
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
@@ -94,11 +99,6 @@ public class WeightTicket {
 
     private static boolean isWeightInvalid(Double gross, Double net) {
         return gross != null && net != null && gross > 0 && net > 0 && gross <= net;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     private record ReviewStatus(boolean needsReview, String reviewNote) {}
