@@ -29,9 +29,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @JsonPropertyOrder({ "id", "carNumber", "grossWeight", "tareWeight", "netWeight", "scaledAt", "confidence", "needsReview", "createdAt" })
 public class WeightTicket {
 
-    @Value("${ocr.policy.confidence-threshold}")
-    private double confidenceThreshold;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
